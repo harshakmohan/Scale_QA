@@ -17,7 +17,6 @@ To Do: Look at the data directly and see if there are any other checks that coul
       "policy_sign",
       "non_visible_face"
     ],
-    So, we know the objects that we want to annotate in this image.
 '''
 
 import requests
@@ -51,9 +50,6 @@ while True:
 
 print(f"Total Tasks: {len(tasks)}")
 for task in tasks:
-    print(task["task_id"])
+    task_id = task["task_id"]
+    qa_test = QA(task_id)
 
-
-### Test Bed ###
-task_id = tasks[3]["task_id"]
-qa_test = QA(task_id)
