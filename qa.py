@@ -18,13 +18,18 @@ class QA:
         self.annotations = self.data["response"].get("annotations", [])
         
         self.result_state = Result.PASS # Default to pass
-        self.qa_results = {} # Dict to store result of every quality check
+        self.qa_results = {} # Map check names to list of (Result, str message)
 
         print(f'Task ID: {self.task_id}')
         print(f'Image URL: {self.img_url}')
         # print(f"Annotations: {self.annotations}")
 
         self._run_qa()
+
+    def _add_qa_result(self, qa_test_key: str, result: Result, msg: str):
+        if qa_test_key not in self.qa_results:
+            self.qa_results[qa_test_key] = []
+        self.qa_results[qa_test_key].append((result, msg))
 
     def _update_result_state(self, qa_result_output: Result):
         '''
@@ -45,31 +50,28 @@ class QA:
         if not self._is_completed():
             # If task is not completed, do something useful
             print(f"Task not completed. Skipping...")
-            pass
+            return
 
         if self._is_annotations():
             # If we have non-zero number of annotations, run the QA checks.
             print(f"Running QA Checks...")
-            _ = self.traffic_light_background_color()
+            self.traffic_light_background_color()
             print(f'Completed QA Checks: {self.result_state.value}')
             print(self.qa_results)
         else:
             # If we have zero annotations, run separate stage of qa checks specifically for images that have no annotations
-            pass
+            return
 
     def _is_completed(self) -> bool:
         return self.data["status"] == "completed"
 
     def _is_annotations(self) -> bool:
-        if self.annotations and len(self.annotations) > 0:
-            return True
-        else:
-            return False
+        return bool(self.annotations)
 
     ### Obvious Checks (low-hanging fruit) ###
     def traffic_light_background_color(self, aspect_ratio = 1.5):
         '''
-        Background color of traffic lights should be "Other"
+        Background color of traffic lights should be "other"
         - We get the `traffic_control_sign` field, but this also includes other things.
         - So let's first find all `traffic_control_sign`, then filter by aspect ratio (traffic lights are generally long and narrow)
         - Then check if background color is "other"
@@ -77,32 +79,39 @@ class QA:
         # Get all traffic_control_sign annotations for this image
         traffic_control_signs = [annotation for annotation in self.annotations if annotation["label"] == "traffic_control_sign"]
 
-        # We are interested in traffic lights specifically. Traffic lights are long and narrow, and (in the USA) they are almost always oriented vertically and perpendicularly to the ground
+        # We are interested in traffic lights specifically. Traffic lights are long and narrow, and (in the USA) they are almost always oriented vertically and perpendicularly to the ground.
         # traffic_control_signs include traffic lights, stop signs, yield signs, merge signs, etc...
-        # Filter out traffic lights from traffic_control_signs list by some heuristic aspect ratio
+        # Filter out traffic lights from traffic_control_signs list by some heuristic aspect ratio.
         traffic_lights = []
         for annotation in traffic_control_signs:
             width = annotation.get("width", 0)
             height = annotation.get("height", 0)
             if width == 0 or height == 0:
-                # We should never have 1D bounding boxes
+                # We should never have 1D bounding boxes.
                 self._update_result_state(Result.FAIL)
-                # TODO: Add error message, and ability to have multiple error messages per check, instead of just 1 field.
-                self.qa_results["traffic_light_background_color"] = Result.FAIL.value
-                # TODO: Don't just return, we want to loop through all the annotations.
-                return Result.FAIL
-            ratio = height/width # aspect ratio of current bbox
+                self._add_qa_result("traffic_light_background_color", Result.FAIL, "1d bbox error: width or height is zero")
+                # Loop through remaining traffic_control_signs
+                continue
+
+            ratio = height / width  # aspect ratio of current bbox
             if ratio >= aspect_ratio:
                 traffic_lights.append(annotation)
-        # Now check background color for the filtered annotations
-        qa_result = Result.PASS # Default to pass. This gets set to FAIL conditionally below
+
+        # Check background color
         for annotation in traffic_lights:
             bg_color = annotation.get("attributes", {}).get("background_color", "").lower()
             if bg_color != "other":
-                # Return FAIL
-                qa_result = Result.FAIL
                 self._update_result_state(Result.FAIL)
-                self.qa_results["traffic_light_background_color"] = qa_result.value
-                return qa_result
-        self.qa_results["traffic_light_background_color"] = qa_result.value
-        return qa_result
+                self._add_qa_result(
+                    "traffic_light_background_color",
+                    Result.FAIL,
+                    f"background color is '{bg_color}' instead of 'other'"
+                )
+        # If no failures for "traffic_light_background_color", record as pass
+        if ("traffic_light_background_color" not in self.qa_results or 
+            len(self.qa_results["traffic_light_background_color"]) == 0):
+            self._add_qa_result(
+                "traffic_light_background_color",
+                Result.PASS,
+                ""
+            )
