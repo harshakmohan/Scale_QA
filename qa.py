@@ -87,6 +87,9 @@ class QA:
             if width == 0 or height == 0:
                 # We should never have 1D bounding boxes
                 self._update_result_state(Result.FAIL)
+                # TODO: Add error message, and ability to have multiple error messages per check, instead of just 1 field.
+                self.qa_results["traffic_light_background_color"] = Result.FAIL.value
+                # TODO: Don't just return, we want to loop through all the annotations.
                 return Result.FAIL
             ratio = height/width # aspect ratio of current bbox
             if ratio >= aspect_ratio:
@@ -98,8 +101,8 @@ class QA:
             if bg_color != "other":
                 # Return FAIL
                 qa_result = Result.FAIL
-                self.qa_results["traffic_light_background_color"] = qa_result.value
                 self._update_result_state(Result.FAIL)
+                self.qa_results["traffic_light_background_color"] = qa_result.value
                 return qa_result
         self.qa_results["traffic_light_background_color"] = qa_result.value
         return qa_result
