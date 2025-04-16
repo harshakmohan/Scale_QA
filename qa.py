@@ -15,14 +15,16 @@ class QA:
 
         self.data = self.client.get_task(task_id).as_dict()
         self.img_url = self.data["params"]["attachment"]
-        self.annotations = self.data["response"]
+        self.annotations = self.data["response"].get("annotations", [])
         
         self.result_state = Result.PASS # Default to pass
         self.qa_results = {} # Dict to store result of every quality check
 
         print(f'Task ID: {self.task_id}')
         print(f'Image URL: {self.img_url}')
-        print(f"Annotations: {self.annotations}")
+        # print(f"Annotations: {self.annotations}")
+
+        self._run_qa()
 
     def _update_result_state(self, qa_result_output: Result):
         '''
@@ -39,9 +41,30 @@ class QA:
         elif qa_result_output == Result.WARN and self.result_state == Result.PASS:
             self.result_state = Result.WARN
 
-    ### Basic set of checks that get executed in the constructor ###
-    def is_completed(self):
+    def _run_qa(self):
+        if not self._is_completed():
+            # If task is not completed, do something useful
+            print(f"Task not completed. Skipping...")
+            pass
+
+        if self._is_annotations():
+            # If we have non-zero number of annotations, run the QA checks.
+            print(f"Running QA Checks...")
+            _ = self.traffic_light_background_color()
+            print(f'Completed QA Checks: {self.result_state.value}')
+            print(self.qa_results)
+        else:
+            # If we have zero annotations, run separate stage of qa checks specifically for images that have no annotations
+            pass
+
+    def _is_completed(self) -> bool:
         return self.data["status"] == "completed"
+
+    def _is_annotations(self) -> bool:
+        if self.annotations and len(self.annotations) > 0:
+            return True
+        else:
+            return False
 
     ### Obvious Checks (low-hanging fruit) ###
     def traffic_light_background_color(self, aspect_ratio = 1.5):
@@ -75,8 +98,8 @@ class QA:
             if bg_color != "other":
                 # Return FAIL
                 qa_result = Result.FAIL
+                self.qa_results["traffic_light_background_color"] = qa_result.value
                 self._update_result_state(Result.FAIL)
-                return Result.FAIL
-
+                return qa_result
         self.qa_results["traffic_light_background_color"] = qa_result.value
         return qa_result
