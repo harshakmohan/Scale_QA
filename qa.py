@@ -18,7 +18,7 @@ class QA:
         self.annotations = self.data["response"].get("annotations", [])
         
         self.result_state = Result.PASS # Default to pass
-        self.qa_results = {} # Map check names to list of (Result, str message)
+        self.qa_results = {} # Map check names to list of (Result, msg str)
 
         print(f'Task ID: {self.task_id}')
         print(f'Image URL: {self.img_url}')
@@ -68,7 +68,7 @@ class QA:
     def _is_annotations(self) -> bool:
         return bool(self.annotations)
 
-    ### Obvious Checks (low-hanging fruit) ###
+    ### QA Checks ###
     def traffic_light_background_color(self, aspect_ratio = 1.5):
         '''
         Background color of traffic lights should be "other"
