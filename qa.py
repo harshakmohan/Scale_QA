@@ -56,9 +56,11 @@ class QA:
             # If we have non-zero number of annotations, run the QA checks.
             print(f"Running QA Checks...")
             self.traffic_light_background_color()
+            self.check_truncation()
             print(f'Completed QA Checks: {self.result_state.value}')
             print(self.qa_results)
         else:
+            print(f"No annotations. Skipping...")
             # If we have zero annotations, run separate stage of qa checks specifically for images that have no annotations
             return
 
@@ -101,17 +103,68 @@ class QA:
         for annotation in traffic_lights:
             bg_color = annotation.get("attributes", {}).get("background_color", "").lower()
             if bg_color != "other":
-                self._update_result_state(Result.FAIL)
+                self._update_result_state(Result.WARN)
                 self._add_qa_result(
                     "traffic_light_background_color",
-                    Result.FAIL,
+                    Result.WARN,
                     f"background color is '{bg_color}' instead of 'other'"
                 )
-        # If no failures for "traffic_light_background_color", record as pass
+        # If no failures or warnings for "traffic_light_background_color", record as pass
         if ("traffic_light_background_color" not in self.qa_results or 
             len(self.qa_results["traffic_light_background_color"]) == 0):
             self._add_qa_result(
                 "traffic_light_background_color",
+                Result.PASS,
+                ""
+            )
+
+    def check_truncation(self):
+        '''
+        Check if truncation values are consistent with bounding box position:
+        - If bbox is not touching image borders, truncation should be 0%
+        - If truncation is marked but box isn't at border, flag as error
+        '''
+        for annotation in self.annotations:
+            # Get bbox coordinates and image dimensions
+            x = annotation.get("left", 0)
+            y = annotation.get("top", 0)
+            width = annotation.get("width", 0)
+            height = annotation.get("height", 0)
+            img_width = self.data["params"].get("width", 0)
+            img_height = self.data["params"].get("height", 0)
+            
+            # Get truncation value
+            truncation = annotation.get("attributes", {}).get("truncation", "0%")
+            truncation_value = int(truncation.strip('%'))
+            
+            # Check if bbox touches any image border
+            touches_border = (
+                abs(x) <= 1 or  # Left border
+                abs(y) <= 1 or  # Top border
+                abs(x + width - img_width) <= 1 or  # Right border
+                abs(y + height - img_height) <= 1    # Bottom border
+            )
+            
+            if not touches_border and truncation_value > 0:
+                self._update_result_state(Result.FAIL)
+                self._add_qa_result(
+                    "truncation_check",
+                    Result.FAIL,
+                    f"Annotation has {truncation_value}% truncation but doesn't touch image border"
+                )
+            elif touches_border and truncation_value == 0:
+                self._update_result_state(Result.WARN)
+                self._add_qa_result(
+                    "truncation_check",
+                    Result.WARN,
+                    f"Annotation touches image border but has 0% truncation"
+                )
+                
+        # If no failures or warnings, record as pass
+        if ("truncation_check" not in self.qa_results or 
+            len(self.qa_results["truncation_check"]) == 0):
+            self._add_qa_result(
+                "truncation_check",
                 Result.PASS,
                 ""
             )
