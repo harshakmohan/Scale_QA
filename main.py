@@ -64,20 +64,17 @@ def main():
     print(f"Total Tasks: {len(tasks)}")
     print("Running QA on available tasks...")
 
-    # Run QA on all tasks and collect results
     qa_results = []
     for task in tasks:
         task_id = task["task_id"]
         qa = QA(task_id)
         qa_results.append(format_qa_results(task_id, qa))
 
-    # Generate summary statistics
     total_tasks = len(qa_results)
     status_counts = defaultdict(int)
     for result in qa_results:
         status_counts[result["overall_score"]] += 1
 
-    # Create final output
     output = {
         "summary": {
             "total_tasks": total_tasks,
@@ -88,7 +85,6 @@ def main():
         "results": qa_results
     }
 
-    # Write to JSON file
     with open('qa_results.json', 'w') as f:
         json.dump(output, f, indent=2)
 
@@ -102,4 +98,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-    
