@@ -26,10 +26,10 @@ class QA:
 
         self._run_qa()
 
-    def _add_qa_result(self, qa_test_key: str, result: Result, msg: str):
+    def _add_qa_result(self, uuid: str, qa_test_key: str, result: Result, msg: str):
         if qa_test_key not in self.qa_results:
             self.qa_results[qa_test_key] = []
-        self.qa_results[qa_test_key].append((result, msg))
+        self.qa_results[qa_test_key].append((uuid, result, msg))
 
     def _update_result_state(self, qa_result_output: Result):
         '''
@@ -91,7 +91,7 @@ class QA:
             if width == 0 or height == 0:
                 # We should never have 1D bounding boxes.
                 self._update_result_state(Result.FAIL)
-                self._add_qa_result("traffic_light_background_color", Result.FAIL, "1d bbox error: width or height is zero")
+                self._add_qa_result(annotation["uuid"], "traffic_light_background_color", Result.FAIL, "1d bbox error: width or height is zero")
                 # Loop through remaining traffic_control_signs
                 continue
 
@@ -105,6 +105,7 @@ class QA:
             if bg_color != "other":
                 self._update_result_state(Result.WARN)
                 self._add_qa_result(
+                    annotation["uuid"],
                     "traffic_light_background_color",
                     Result.WARN,
                     f"background color is '{bg_color}' instead of 'other'"
@@ -113,6 +114,7 @@ class QA:
         if ("traffic_light_background_color" not in self.qa_results or 
             len(self.qa_results["traffic_light_background_color"]) == 0):
             self._add_qa_result(
+                annotation["uuid"],
                 "traffic_light_background_color",
                 Result.PASS,
                 ""
@@ -148,6 +150,7 @@ class QA:
             if not touches_border and truncation_value > 0:
                 self._update_result_state(Result.FAIL)
                 self._add_qa_result(
+                    annotation["uuid"],
                     "truncation_check",
                     Result.FAIL,
                     f"Annotation has {truncation_value}% truncation but doesn't touch image border"
@@ -155,6 +158,7 @@ class QA:
             elif touches_border and truncation_value == 0:
                 self._update_result_state(Result.WARN)
                 self._add_qa_result(
+                    annotation["uuid"],
                     "truncation_check",
                     Result.WARN,
                     f"Annotation touches image border but has 0% truncation"
@@ -164,6 +168,7 @@ class QA:
         if ("truncation_check" not in self.qa_results or 
             len(self.qa_results["truncation_check"]) == 0):
             self._add_qa_result(
+                "N/A",
                 "truncation_check",
                 Result.PASS,
                 ""

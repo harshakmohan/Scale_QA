@@ -18,8 +18,9 @@ def format_qa_results(task_id: str, qa_instance: QA) -> dict:
     
     # Sort results into appropriate lists
     for check_name, results in qa_instance.qa_results.items():
-        for result, message in results:
+        for uuid, result, message in results:
             result_entry = {
+                "uuid": uuid,
                 "check_name": check_name,
                 "message": message
             }
